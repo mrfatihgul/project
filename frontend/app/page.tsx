@@ -1,6 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import type { FormEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 type Item = {
   id: number;
@@ -8,52 +13,140 @@ type Item = {
 };
 
 export default function Home() {
+  const router = useRouter();
+
   const [items, setItems] = useState<Item[]>([]);
   const [name, setName] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
-  async function loadItems() {
-    setError(null);
-    const res = await fetch("http://localhost:8080/api/items");
-    if (!res.ok) {
-      setError("Liste alınamadı");
+  const logout = useCallback(() => {
+    localStorage.removeItem("accessToken");
+    router.replace("/login");
+  }, [router]);
+
+  const getToken = useCallback(() => {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      logout();
+      return null;
+    }
+    return token;
+  }, [logout]);
+
+  const loadItems = useCallback(async () => {
+    const token = getToken();
+    if (!token) {
       return;
     }
-    setItems(await res.json());
+
+    try {
+      const response = await fetch(`${API_URL}/api/items`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 401) {
+        logout();
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error("Liste alınamadı");
+      }
+
+      setItems(await response.json());
+    } catch {
+      setError("Ürünler alınamadı");
+    } finally {
+      setCheckingAuth(false);
+    }
+  }, [getToken, logout]);
+
+  useEffect(() => {
+    void loadItems();
+  }, [loadItems]);
+
+  function startEdit(item: Item) {
+    setEditingId(item.id);
+    setName(item.name);
+    setError(null);
   }
 
-  async function addItem(e: FormEvent) {
-    e.preventDefault();
+  function cancelEdit() {
+    setEditingId(null);
+    setName("");
+  }
+
+  async function saveItem(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setError(null);
-    const res = await fetch("http://localhost:8080/api/items", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
-    if (!res.ok) {
-      setError("Ekleme başarısız");
+
+    const token = getToken();
+    if (!token) {
       return;
     }
+
+    const isEditing = editingId !== null;
+    const url = isEditing
+      ? `${API_URL}/api/items/${editingId}`
+      : `${API_URL}/api/items`;
+
+    const response = await fetch(url, {
+      method: isEditing ? "PUT" : "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ name }),
+    });
+
+    if (response.status === 401) {
+      logout();
+      return;
+    }
+
+    if (!response.ok) {
+      setError(isEditing ? "Güncelleme başarısız" : "Ekleme başarısız");
+      return;
+    }
+
     setName("");
+    setEditingId(null);
     await loadItems();
   }
 
-  useEffect(() => {
-    loadItems();
-  }, []);
+  if (checkingAuth) {
+    return <p>Oturum kontrol ediliyor...</p>;
+  }
 
   return (
     <main style={{ padding: 24, fontFamily: "sans-serif" }}>
-      <h1>Items</h1>
+      <h1>Ürünler</h1>
 
-      <form onSubmit={addItem} style={{ marginBottom: 16 }}>
+      <button type="button" onClick={logout}>
+        Çıkış yap
+      </button>
+
+      <form onSubmit={saveItem} style={{ marginTop: 16, marginBottom: 16 }}>
         <input
           value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="isim"
+          onChange={(event) => setName(event.target.value)}
+          placeholder={editingId ? "Yeni isim" : "Ürün adı"}
           required
         />
-        <button type="submit">Ekle</button>
+
+        <button type="submit">
+          {editingId ? "Kaydet" : "Ekle"}
+        </button>
+
+        {editingId !== null && (
+          <button type="button" onClick={cancelEdit}>
+            İptal
+          </button>
+        )}
       </form>
 
       {error && <p style={{ color: "red" }}>{error}</p>}
@@ -61,7 +154,10 @@ export default function Home() {
       <ul>
         {items.map((item) => (
           <li key={item.id}>
-            {item.id}: {item.name}
+            {item.id}: {item.name}{" "}
+            <button type="button" onClick={() => startEdit(item)}>
+              Düzenle
+            </button>
           </li>
         ))}
       </ul>
