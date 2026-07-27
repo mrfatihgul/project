@@ -1,5 +1,7 @@
-package com.example.project;
+package com.example.project.security.config;
 
+import com.example.project.user.entity.AppUser;
+import com.example.project.user.repository.AppUserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;

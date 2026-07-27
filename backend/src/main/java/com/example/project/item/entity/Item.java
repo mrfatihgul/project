@@ -1,5 +1,6 @@
-package com.example.project;
+package com.example.project.item.entity;
 
+import com.example.project.user.entity.AppUser;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -8,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.OneToOne;
 
 @Entity
 public class Item {
@@ -17,6 +19,10 @@ public class Item {
 	private Long id;
 
 	private String name;
+
+	@OneToOne
+	@JoinColumn(name = "detail_id")
+	private ItemDetail details;
 
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
 	@JoinColumn(name = "owner_id", nullable = false)
@@ -39,6 +45,14 @@ public class Item {
 
 	public void setName(String name) {
 		this.name = name;
+	}
+
+	public ItemDetail getDetails() {
+		return details;
+	}
+
+	public void setDetails(ItemDetail details) {
+		this.details = details;
 	}
 
 	@JsonIgnore

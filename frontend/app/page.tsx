@@ -7,9 +7,22 @@ import { useRouter } from "next/navigation";
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
+type ItemDetail = {
+  type: string;
+  description: string;
+  material: string;
+};
+
 type Item = {
   id: number;
   name: string;
+  details?: ItemDetail | null;
+};
+
+const emptyDetails: ItemDetail = {
+  type: "",
+  description: "",
+  material: "",
 };
 
 export default function Home() {
@@ -17,6 +30,7 @@ export default function Home() {
 
   const [items, setItems] = useState<Item[]>([]);
   const [name, setName] = useState("");
+  const [details, setDetails] = useState<ItemDetail>(emptyDetails);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -69,15 +83,21 @@ export default function Home() {
     void loadItems();
   }, [loadItems]);
 
+  function resetForm() {
+    setEditingId(null);
+    setName("");
+    setDetails(emptyDetails);
+  }
+
   function startEdit(item: Item) {
     setEditingId(item.id);
     setName(item.name);
+    setDetails({
+      type: item.details?.type ?? "",
+      description: item.details?.description ?? "",
+      material: item.details?.material ?? "",
+    });
     setError(null);
-  }
-
-  function cancelEdit() {
-    setEditingId(null);
-    setName("");
   }
 
   async function saveItem(event: FormEvent<HTMLFormElement>) {
@@ -94,13 +114,22 @@ export default function Home() {
       ? `${API_URL}/api/items/${editingId}`
       : `${API_URL}/api/items`;
 
+    const body = {
+      name,
+      details: {
+        type: details.type,
+        description: details.description,
+        material: details.material,
+      },
+    };
+
     const response = await fetch(url, {
       method: isEditing ? "PUT" : "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(body),
     });
 
     if (response.status === 401) {
@@ -113,54 +142,141 @@ export default function Home() {
       return;
     }
 
-    setName("");
-    setEditingId(null);
+    resetForm();
     await loadItems();
   }
 
   if (checkingAuth) {
-    return <p>Oturum kontrol ediliyor...</p>;
+    return <p className="loading">Oturum kontrol ediliyor...</p>;
   }
 
   return (
-    <main style={{ padding: 24, fontFamily: "sans-serif" }}>
-      <h1>Ürünler</h1>
-
-      <button type="button" onClick={logout}>
-        Çıkış yap
-      </button>
-
-      <form onSubmit={saveItem} style={{ marginTop: 16, marginBottom: 16 }}>
-        <input
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder={editingId ? "Yeni isim" : "Ürün adı"}
-          required
-        />
-
-        <button type="submit">
-          {editingId ? "Kaydet" : "Ekle"}
+    <main className="app-shell">
+      <div className="page-header">
+        <div>
+          <h1>Ürünler</h1>
+          <p>Backend Item + ItemDetail yapısına uygun liste</p>
+        </div>
+        <button type="button" className="btn btn-ghost" onClick={logout}>
+          Çıkış yap
         </button>
+      </div>
 
-        {editingId !== null && (
-          <button type="button" onClick={cancelEdit}>
-            İptal
-          </button>
-        )}
-      </form>
+      <section className="panel">
+        <form className="stack" onSubmit={saveItem}>
+          <div className="field">
+            <label htmlFor="name">Ürün adı</label>
+            <input
+              id="name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Örn. Kalem"
+              required
+            />
+          </div>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
+          <div className="field-grid">
+            <div className="field">
+              <label htmlFor="type">Tip</label>
+              <input
+                id="type"
+                value={details.type}
+                onChange={(event) =>
+                  setDetails((current) => ({
+                    ...current,
+                    type: event.target.value,
+                  }))
+                }
+                placeholder="Örn. kırtasiye"
+                required
+              />
+            </div>
 
-      <ul>
-        {items.map((item) => (
-          <li key={item.id}>
-            {item.id}: {item.name}{" "}
-            <button type="button" onClick={() => startEdit(item)}>
-              Düzenle
+            <div className="field">
+              <label htmlFor="material">Materyal</label>
+              <input
+                id="material"
+                value={details.material}
+                onChange={(event) =>
+                  setDetails((current) => ({
+                    ...current,
+                    material: event.target.value,
+                  }))
+                }
+                placeholder="Örn. plastik"
+                required
+              />
+            </div>
+
+            <div className="field" style={{ gridColumn: "1 / -1" }}>
+              <label htmlFor="description">Açıklama</label>
+              <textarea
+                id="description"
+                value={details.description}
+                onChange={(event) =>
+                  setDetails((current) => ({
+                    ...current,
+                    description: event.target.value,
+                  }))
+                }
+                placeholder="Kısa ürün açıklaması"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="actions">
+            <button type="submit" className="btn btn-primary">
+              {editingId ? "Kaydet" : "Ekle"}
             </button>
-          </li>
-        ))}
-      </ul>
+            {editingId !== null && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={resetForm}
+              >
+                İptal
+              </button>
+            )}
+          </div>
+        </form>
+
+        {error && <p className="error">{error}</p>}
+      </section>
+
+      <section className="panel">
+        <ul className="item-list">
+          {items.map((item) => (
+            <li key={item.id} className="item-card">
+              <div className="item-card-top">
+                <div>
+                  <h2>
+                    #{item.id} · {item.name}
+                  </h2>
+                  <p className="muted">
+                    {item.details?.description || "Açıklama yok"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => startEdit(item)}
+                >
+                  Düzenle
+                </button>
+              </div>
+              <div className="item-meta">
+                <span className="chip">
+                  Tip: {item.details?.type || "-"}
+                </span>
+                <span className="chip">
+                  Materyal: {item.details?.material || "-"}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
     </main>
   );
 }

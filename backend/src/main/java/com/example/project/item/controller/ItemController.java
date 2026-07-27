@@ -1,7 +1,12 @@
-package com.example.project;
+package com.example.project.item.controller;
 
 import java.util.List;
 
+import com.example.project.item.entity.Item;
+import com.example.project.item.repository.ItemDetailRepository;
+import com.example.project.item.service.ItemService;
+import com.example.project.user.entity.AppUser;
+import com.example.project.user.repository.AppUserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -19,14 +24,13 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/api/items")
 public class ItemController {
 
-    private final ItemRepository itemRepository;
+    private final ItemService itemService;
+    private final ItemDetailRepository itemDetailRepository;
     private final AppUserRepository userRepository;
 
-    public ItemController(
-            ItemRepository itemRepository,
-            AppUserRepository userRepository
-    ) {
-        this.itemRepository = itemRepository;
+    public ItemController(ItemService itemService, ItemDetailRepository itemDetailRepository, AppUserRepository userRepository) {
+        this.itemService = itemService;
+        this.itemDetailRepository = itemDetailRepository;
         this.userRepository = userRepository;
     }
 
@@ -38,7 +42,7 @@ public class ItemController {
     @GetMapping
     public List<Item> findAll(@AuthenticationPrincipal Jwt jwt) {
         AppUser user = currentUser(jwt);
-        return itemRepository.findByOwner(user);
+        return itemService.findByOwner(user);
     }
 
     @GetMapping("/{id}")
@@ -47,8 +51,7 @@ public class ItemController {
             @AuthenticationPrincipal Jwt jwt
     ) {
         AppUser user = currentUser(jwt);
-        return itemRepository.findByIdAndOwner(id, user)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return itemService.findByIdAndOwner(id, user);
     }
 
     @PostMapping
@@ -60,7 +63,16 @@ public class ItemController {
         AppUser user = currentUser(jwt);
         item.setId(null);
         item.setOwner(user);
-        return itemRepository.save(item);
+
+        if (item.getDetails() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Item details zorunludur"
+            );
+        }
+
+        itemDetailRepository.save(item.getDetails());
+        return itemService.create(item);
     }
 
     @PutMapping("/{id}")
@@ -70,10 +82,21 @@ public class ItemController {
             @AuthenticationPrincipal Jwt jwt
     ) {
         AppUser user = currentUser(jwt);
-        Item item = itemRepository.findByIdAndOwner(id, user)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        Item item = itemService.findByIdAndOwner(id, user);
 
         item.setName(request.getName());
-        return itemRepository.save(item);
+
+        if (request.getDetails() != null) {
+            if (item.getDetails() != null) {
+                item.getDetails().setType(request.getDetails().getType());
+                item.getDetails().setDescription(request.getDetails().getDescription());
+                item.getDetails().setMaterial(request.getDetails().getMaterial());
+                itemDetailRepository.save(item.getDetails());
+            } else {
+                item.setDetails(itemDetailRepository.save(request.getDetails()));
+            }
+        }
+
+        return itemService.create(item);
     }
 }

@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
 
   const [username, setUsername] = useState("");
@@ -16,13 +16,13 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function login(event: FormEvent<HTMLFormElement>) {
+  async function register(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
+      const response = await fetch(`${API_URL}/api/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -30,8 +30,13 @@ export default function LoginPage() {
         body: JSON.stringify({ username, password }),
       });
 
+      if (response.status === 409) {
+        setError("Bu kullanıcı adı zaten kullanılıyor");
+        return;
+      }
+
       if (!response.ok) {
-        setError("Kullanıcı adı veya şifre yanlış");
+        setError("Kayıt başarısız");
         return;
       }
 
@@ -49,10 +54,14 @@ export default function LoginPage() {
   return (
     <main className="auth-page">
       <section className="panel auth-card">
-        <h1>Giriş yap</h1>
-        <p>Ürünlerini görmek için hesabına gir</p>
+        <h1>Kayıt ol</h1>
+        <p>Yeni hesap oluştur ve ürünlerini yönet</p>
 
-        <form className="stack" onSubmit={login} style={{ marginTop: "1.25rem" }}>
+        <form
+          className="stack"
+          onSubmit={register}
+          style={{ marginTop: "1.25rem" }}
+        >
           <div className="field">
             <label htmlFor="username">Kullanıcı adı</label>
             <input
@@ -77,14 +86,14 @@ export default function LoginPage() {
           </div>
 
           <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? "Giriş yapılıyor..." : "Giriş yap"}
+            {loading ? "Kaydediliyor..." : "Kayıt ol"}
           </button>
         </form>
 
         {error && <p className="error">{error}</p>}
 
         <p className="auth-switch">
-          Hesabın yok mu? <Link href="/register">Kayıt ol</Link>
+          Zaten hesabın var mı? <Link href="/login">Giriş yap</Link>
         </p>
       </section>
     </main>
