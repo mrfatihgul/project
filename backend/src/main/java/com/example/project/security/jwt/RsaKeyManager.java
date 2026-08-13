@@ -1,55 +1,27 @@
 package com.example.project.security.jwt;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
-import java.nio.file.Path;
-import java.nio.file.Files;
-import java.security.KeyFactory;
+import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
-import java.security.spec.InvalidKeySpecException;
+import java.util.Base64;
 
 public class RsaKeyManager {
-    public KeyPair generateKeyPair() {
+
+    public void generateKeyPair(String publicKeyCopyPath) {
         try {
-            KeyPairGenerator generator =
-                    KeyPairGenerator.getInstance("RSA");
-
-            generator.initialize(2048);
-            KeyPair keyPair = generator.generateKeyPair();
-            PrivateKey privateKey = keyPair.getPrivate();
-            PublicKey publicKey = keyPair.getPublic();
-
-            byte[] privateBytes = privateKey.getEncoded();
-            byte[] publicBytes = publicKey.getEncoded();
-
-            String privateBase64 = Base64.getEncoder()
-                    .encodeToString(privateBytes);
-
-            String publicBase64 = Base64.getEncoder()
-                    .encodeToString(publicBytes);
-
-            String privatePem =
-                    "-----BEGIN PRIVATE KEY-----\n"
-                            + privateBase64
-                            + "\n-----END PRIVATE KEY-----\n";
-
-            String publicPem =
-                    "-----BEGIN PUBLIC KEY-----\n"
-                            + publicBase64
-                            + "\n-----END PUBLIC KEY-----\n";
-
             Path keyDirectory = Path.of("keys");
             try {
                 Files.createDirectories(keyDirectory);
-
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 throw new RuntimeException(e);
             }
 
@@ -63,31 +35,10 @@ public class RsaKeyManager {
                 try {
                     String loadedPrivatePem = Files.readString(privateKeyPath);
                     String loadedPublicPem = Files.readString(publicKeyPath);
-                    loadedPrivatePem = loadedPrivatePem
-                            .replace("-----BEGIN PRIVATE KEY-----", "")
-                            .replace("-----END PRIVATE KEY-----", "")
-                            .replaceAll("\\s", "");
 
-                    loadedPublicPem = loadedPublicPem
-                            .replace("-----BEGIN PUBLIC KEY-----", "")
-                            .replace("-----END PUBLIC KEY-----", "")
-                            .replaceAll("\\s", "");
-
-                    byte[] loadedPrivateBytes = Base64.getDecoder().decode(loadedPrivatePem);
-                    byte[] loadedPublicBytes = Base64.getDecoder().decode(loadedPublicPem);
-                    KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-
-                    PKCS8EncodedKeySpec privateKeySpec =
-                            new PKCS8EncodedKeySpec(loadedPrivateBytes);
-                    X509EncodedKeySpec publicKeySpec =
-                            new X509EncodedKeySpec(loadedPublicBytes);
-
-                    PrivateKey loadedPrivateKey =
-                            keyFactory.generatePrivate(privateKeySpec);
-
-                    PublicKey loadedPublicKey =
-                            keyFactory.generatePublic(publicKeySpec);
-
+                    validatePem(loadedPrivatePem, loadedPublicPem);
+                    copyPublicKey(loadedPublicPem, publicKeyCopyPath);
+                    return;
                 } catch (IOException e) {
                     throw new RuntimeException("Anahtar dosyaları okunamadı.", e);
                 } catch (InvalidKeySpecException e) {
@@ -95,19 +46,68 @@ public class RsaKeyManager {
                 }
             }
 
+            KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+            generator.initialize(2048);
+            KeyPair keyPair = generator.generateKeyPair();
+            PrivateKey privateKey = keyPair.getPrivate();
+            PublicKey publicKey = keyPair.getPublic();
+
+            String privatePem =
+                    "-----BEGIN PRIVATE KEY-----\n"
+                            + Base64.getEncoder().encodeToString(privateKey.getEncoded())
+                            + "\n-----END PRIVATE KEY-----\n";
+
+            String publicPem =
+                    "-----BEGIN PUBLIC KEY-----\n"
+                            + Base64.getEncoder().encodeToString(publicKey.getEncoded())
+                            + "\n-----END PUBLIC KEY-----\n";
+
             try {
                 Files.writeString(privateKeyPath, privatePem);
                 Files.writeString(publicKeyPath, publicPem);
+                copyPublicKey(publicPem, publicKeyCopyPath);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-
-
-
-            return generator.generateKeyPair();
         } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(
-                    "RSA algoritması kullanılamıyor",
+            throw new IllegalStateException("RSA algoritması kullanılamıyor", e);
+        }
+    }
+
+    private void validatePem(String privatePem, String publicPem)
+            throws InvalidKeySpecException, NoSuchAlgorithmException {
+        String loadedPrivatePem = privatePem
+                .replace("-----BEGIN PRIVATE KEY-----", "")
+                .replace("-----END PRIVATE KEY-----", "")
+                .replaceAll("\\s", "");
+
+        String loadedPublicPem = publicPem
+                .replace("-----BEGIN PUBLIC KEY-----", "")
+                .replace("-----END PUBLIC KEY-----", "")
+                .replaceAll("\\s", "");
+
+        byte[] loadedPrivateBytes = Base64.getDecoder().decode(loadedPrivatePem);
+        byte[] loadedPublicBytes = Base64.getDecoder().decode(loadedPublicPem);
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+
+        keyFactory.generatePrivate(new PKCS8EncodedKeySpec(loadedPrivateBytes));
+        keyFactory.generatePublic(new X509EncodedKeySpec(loadedPublicBytes));
+    }
+
+    private void copyPublicKey(String publicPem, String publicKeyCopyPath) {
+        if (publicKeyCopyPath == null || publicKeyCopyPath.isBlank()) {
+            return;
+        }
+
+        try {
+            Path copyPath = Path.of(publicKeyCopyPath);
+            if (copyPath.getParent() != null) {
+                Files.createDirectories(copyPath.getParent());
+            }
+            Files.writeString(copyPath, publicPem);
+        } catch (IOException e) {
+            throw new RuntimeException(
+                    "Public key kopyası yazılamadı: " + publicKeyCopyPath,
                     e
             );
         }

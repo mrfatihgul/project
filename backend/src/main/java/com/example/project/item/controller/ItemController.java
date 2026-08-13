@@ -10,6 +10,7 @@ import com.example.project.user.repository.AppUserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -43,6 +44,21 @@ public class ItemController {
     public List<Item> findAll(@AuthenticationPrincipal Jwt jwt) {
         AppUser user = currentUser(jwt);
         return itemService.findByOwner(user);
+    }
+
+    @GetMapping("/catalog")
+    public List<Item> catalog(@AuthenticationPrincipal Jwt jwt) {
+        currentUser(jwt);
+        return itemService.findAll();
+    }
+
+    @GetMapping("/catalog/{id}")
+    public Item catalogById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        currentUser(jwt);
+        return itemService.findById(id);
     }
 
     @GetMapping("/{id}")
@@ -98,5 +114,15 @@ public class ItemController {
         }
 
         return itemService.create(item);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        AppUser user = currentUser(jwt);
+        itemService.deleteByIdAndOwner(id, user);
     }
 }

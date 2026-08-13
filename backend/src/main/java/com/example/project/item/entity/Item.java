@@ -24,7 +24,7 @@ public class Item {
 	@JoinColumn(name = "detail_id")
 	private ItemDetail details;
 
-	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@ManyToOne(fetch = FetchType.EAGER, optional = false)
 	@JoinColumn(name = "owner_id", nullable = false)
 	private AppUser owner;
 

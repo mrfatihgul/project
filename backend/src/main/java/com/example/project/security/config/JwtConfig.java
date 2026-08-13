@@ -27,9 +27,12 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 public class JwtConfig {
 
 	@Bean
-	public KeyPair rsaKeyPair() {
-		// RsaKeyManager keys/private.pem ve keys/public.pem yazar
-		new RsaKeyManager().generateKeyPair();
+	public KeyPair rsaKeyPair(
+			@Value("${app.jwt.public-key-copy-path}") String publicKeyCopyPath
+	) {
+		// RsaKeyManager keys/private.pem + keys/public.pem yazar
+		// ve public key'i order servisine kopyalar
+		new RsaKeyManager().generateKeyPair(publicKeyCopyPath);
 		return loadKeyPairFromFiles();
 	}
 

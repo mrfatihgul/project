@@ -24,27 +24,27 @@ public class JpaItemService implements ItemService {
     }
 
     @Override
-    public List<Item> findAll() {
-        return itemRepository.findAll();
-    }
-
-    @Override
-    public Item findById(Long id) {
-        return itemRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Item bulunamadı: " + id
-                ));
-    }
-
-    @Override
     public List<Item> findByOwner(AppUser owner) {
         return itemRepository.findByOwner(owner);
     }
 
     @Override
+    public List<Item> findAll() {
+        return itemRepository.findAll();
+    }
+
+    @Override
     public Item findByIdAndOwner(Long id, AppUser owner) {
         return itemRepository.findByIdAndOwner(id, owner)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Item bulunamadı"
+                ));
+    }
+
+    @Override
+    public Item findById(Long id) {
+        return itemRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Item bulunamadı"
@@ -64,18 +64,14 @@ public class JpaItemService implements ItemService {
     }
 
     @Override
-    public Item update(Long id, Item item) {
-        Item existingItem = findById(id);
+    public void deleteByIdAndOwner(Long id, AppUser owner) {
+        Item item = findByIdAndOwner(id, owner);
+        ItemDetail details = item.getDetails();
 
-        existingItem.setName(item.getName());
+        itemRepository.delete(item);
 
-        if (item.getDetails() != null) {
-            ItemDetail savedDetail =
-                    itemDetailRepository.save(item.getDetails());
-
-            existingItem.setDetails(savedDetail);
+        if (details != null) {
+            itemDetailRepository.delete(details);
         }
-
-        return itemRepository.save(existingItem);
     }
 }

@@ -1,11 +1,9 @@
 "use client";
 
 import type { FormEvent } from "react";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 type ItemDetail = {
   type: string;
@@ -56,7 +54,7 @@ export default function Home() {
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/items`, {
+      const response = await fetch("/api/items", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -111,8 +109,8 @@ export default function Home() {
 
     const isEditing = editingId !== null;
     const url = isEditing
-      ? `${API_URL}/api/items/${editingId}`
-      : `${API_URL}/api/items`;
+      ? `/api/items/${editingId}`
+      : `/api/items`;
 
     const body = {
       name,
@@ -154,12 +152,17 @@ export default function Home() {
     <main className="app-shell">
       <div className="page-header">
         <div>
-          <h1>Ürünler</h1>
-          <p>Backend Item + ItemDetail yapısına uygun liste</p>
+          <h1>Ürünlerim</h1>
+          <p>Kendi ürünlerini ekle, düzenle ve yönet</p>
         </div>
-        <button type="button" className="btn btn-ghost" onClick={logout}>
-          Çıkış yap
-        </button>
+        <div className="header-actions">
+          <Link href="/orders" className="btn btn-secondary">
+            Siparişler
+          </Link>
+          <button type="button" className="btn btn-ghost" onClick={logout}>
+            Çıkış yap
+          </button>
+        </div>
       </div>
 
       <section className="panel">

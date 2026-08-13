@@ -20,8 +20,6 @@ public class JpaAuthService implements AuthService {
 
     private final PasswordEncoder passwordEncoder;
 
-    private final JwtEncoder jwtEncoder;
-
     private final AuthenticationManager authenticationManager;
 
     private final TokenService tokenService;
@@ -31,12 +29,10 @@ public class JpaAuthService implements AuthService {
             PasswordEncoder passwordEncoder,
             JwtEncoder jwtEncoder,
             AuthenticationManager authenticationManager,
-            TokenService tokenService,
-            AppUserRepository userRepository
+            TokenService tokenService
     ) {
         this.appUserRepository = appUserRepository;
         this.passwordEncoder = passwordEncoder;
-        this.jwtEncoder = jwtEncoder;
         this.authenticationManager = authenticationManager;
         this.tokenService = tokenService;
     }

@@ -17,5 +17,86 @@ services:
       timeout: 5s
       retries: 5
 
+  backend:
+    build: ./backend
+    container_name: project-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-project}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-project}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-project}
+      APP_CORS_ALLOWED_ORIGINS: http://localhost:3000,http://frontend:3000,http://gateway:8082
+      APP_JWT_PUBLIC_KEY_COPY_PATH: /app/order-keys/public.pem
+    volumes:
+      - ./backend/keys:/app/keys
+      - ./backend-order/keys:/app/order-keys
+    depends_on:
+      db:
+        condition: service_healthy
+
+  backend-order:
+    build: ./backend-order
+    container_name: project-backend-order
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-project}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-project}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-project}
+      APP_CORS_ALLOWED_ORIGINS: http://localhost:3000,http://frontend:3000,http://gateway:8082
+      APP_JWT_ISSUER: project-api
+      APP_ITEMS_BASE_URL: http://backend:8080
+    volumes:
+      - ./backend-order/keys:/app/keys:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+
+  gateway:
+    build: ./backend-gateway
+    container_name: project-gateway
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      APP_CORS_ALLOWED_ORIGINS: http://localhost:3000,http://frontend:3000
+      APP_BACKEND_BASE_URL: http://backend:8080
+      APP_ORDER_BASE_URL: http://backend-order:8081
+    depends_on:
+      - backend
+      - backend-order
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runner
+      args:
+        API_PROXY_TARGET: http://gateway:8082
+    container_name: project-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      API_PROXY_TARGET: http://gateway:8082
+    depends_on:
+      - gateway
+
+  e2e:
+    build:
+      context: ./frontend
+      target: e2e
+    depends_on:
+      - frontend
+      - gateway
+      - backend
+    environment:
+      PLAYWRIGHT_BASE_URL: http://frontend:3000
+      PLAYWRIGHT_API_URL: http://gateway:8082
+
 volumes:
   postgres_data:
